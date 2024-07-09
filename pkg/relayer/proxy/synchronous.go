@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -96,6 +97,38 @@ func (sync *synchronousRPCServer) Start(ctx context.Context) error {
 // Stop terminates the service server and returns an error if it fails.
 func (sync *synchronousRPCServer) Stop(ctx context.Context) error {
 	return sync.server.Shutdown(ctx)
+}
+
+// ServiceIDs returns a list of service id managed by the Relay Server.
+func (sync *synchronousRPCServer) ServiceIDs() []string {
+	serviceIDs := make([]string, len(sync.serverConfig.SupplierConfigsMap))
+
+	for serviceID, _ := range sync.serverConfig.SupplierConfigsMap {
+		serviceIDs = append(serviceIDs, serviceID)
+	}
+
+	return serviceIDs
+}
+
+// Foward sends an HTTP request to the supplier backend URL using the given payload.
+func (sync *synchronousRPCServer) Foward(ctx context.Context, payload []byte) ([]byte, error) {
+	//TODO(eddyzags): Forward payload to supplier
+	return nil, nil
+}
+
+// Ping tries to dial the suppliers backend URLs to test the connection.
+func (sync *synchronousRPCServer) Ping() error {
+	for _, supplierCfg := range sync.serverConfig.SupplierConfigsMap {
+		timeoutDuration := 1 * time.Second
+
+		conn, err := net.DialTimeout("tcp", supplierCfg.ServiceConfig.BackendUrl.Host, timeoutDuration)
+		if err != nil {
+			return err
+		}
+		_ = conn.Close()
+	}
+
+	return nil
 }
 
 // ServeHTTP listens for incoming relay requests. It implements the respective
