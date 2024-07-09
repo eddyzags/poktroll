@@ -136,7 +136,6 @@ func (rp *relayerProxy) Start(ctx context.Context) error {
 	if err := rp.BuildProvidedServices(ctx); err != nil {
 		return err
 	}
-
 	// Start the ring cache.
 	rp.ringCache.Start(ctx)
 
@@ -144,6 +143,11 @@ func (rp *relayerProxy) Start(ctx context.Context) error {
 
 	for _, relayServer := range rp.servers {
 		server := relayServer // create a new variable scoped to the anonymous function
+
+		if err := server.Ping(); err != nil {
+			return err
+		}
+
 		startGroup.Go(func() error { return server.Start(ctx) })
 	}
 
@@ -183,4 +187,15 @@ func (rp *relayerProxy) validateConfig() error {
 	}
 
 	return nil
+}
+
+// RelayServers returns the list of relay servers currently managed by the relayer proxy.
+func (rp *relayerProxy) RelayServers() relayer.RelayServers {
+	res := make([]relayer.RelayServer, len(rp.servers))
+
+	for _, srv := range rp.servers {
+		res = append(res, srv)
+	}
+
+	return res
 }
