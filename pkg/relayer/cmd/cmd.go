@@ -134,6 +134,10 @@ func runRelayer(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	if err := relayMiner.ServePing(ctx, relayMinerConfig.Ping.Addr); err != nil {
+		return fmt.Errorf("failed to start ping server: %w", err)
+	}
+
 	// Start the relay miner
 	logger.Info().Msg("Starting relay miner...")
 	if err := relayMiner.Start(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
