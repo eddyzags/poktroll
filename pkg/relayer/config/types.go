@@ -24,18 +24,12 @@ type YAMLRelayMinerConfig struct {
 	Pprof                  YAMLRelayMinerPprofConfig      `yaml:"pprof"`
 	SmtStorePath           string                         `yaml:"smt_store_path"`
 	Suppliers              []YAMLRelayMinerSupplierConfig `yaml:"suppliers"`
-	Forward                []YAMLRelayMinerForwardConfig  `yaml:"forward"`
-	Ping                   []YAMLRelayMinerPingConfig     `yaml:"ping"`
+	Ping                   YAMLRelayMinerPingConfig       `yaml:"ping"`
 }
 
 type YAMLRelayMinerPingConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Addr    string `yaml:"addr"`
-}
-
-type YAMLRelayMinerForwardConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	JWTToken string `yaml:"jwt-token"`
 }
 
 // YAMLRelayMinerPocketNodeConfig is the structure used to unmarshal the pocket
@@ -95,13 +89,7 @@ type RelayMinerConfig struct {
 	Pprof                  *RelayMinerPprofConfig
 	Servers                map[string]*RelayMinerServerConfig
 	SmtStorePath           string
-	Forward                *RelayMinerForwardConfig
 	Ping                   *RelayMinerPingConfig
-}
-
-type RelayMinerForwardConfig struct {
-	Enabled  bool
-	JWTToken string
 }
 
 type RelayMinerPingConfig struct {

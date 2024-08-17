@@ -6,7 +6,6 @@ package relayer
 
 import (
 	"context"
-	"errors"
 
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 
@@ -76,8 +75,8 @@ type RelayerProxy interface {
 	// that should not be responsible for signing relay responses.
 	SignRelayResponse(relayResponse *servicetypes.RelayResponse, supplierAddr string) error
 
-	// RelayServers returns the list of managed relay servers.
-	RelayServers() RelayServers
+	// Ping tests the connectivity between all the managed relay servers and their respective backend URLs.
+	Ping(ctx context.Context) []error
 }
 
 type RelayerProxyOption func(RelayerProxy)
@@ -90,31 +89,12 @@ type RelayServer interface {
 	// Stop terminates the service server and returns an error if it fails.
 	Stop(ctx context.Context) error
 
-	// Ping tests the connection between the relay server and its suppliers.
-	Ping() error
-
-	// ServiceIDs returns a list of managed service id.
-	ServiceIDs() []string
-
-	// Foward sends request to the suppliers.
-	Foward(ctx context.Context, payload []byte) ([]byte, error)
+	// Ping tests the connection between the relay server and its backend URL.
+	Ping(ctx context.Context) error
 }
 
 // RelayServers aggregates a slice of RelayServer interface.
 type RelayServers []RelayServer
-
-// byServiceID returns the RelayServer which manages the given service id.
-func (r RelayServers) byServiceID(serviceID string) (RelayServer, error) {
-	for _, srv := range r {
-		for _, id := range srv.ServiceIDs() {
-			if serviceID == id {
-				return srv, nil
-			}
-		}
-	}
-
-	return nil, errors.New("Not found") //TODO(eddyzags): errors.New("not found") could be defined as global?
-}
 
 // RelayerSessionsManager is responsible for managing the relayer's session lifecycles.
 // It handles the creation and retrieval of SMSTs (trees) for a given session, as

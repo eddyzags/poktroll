@@ -144,7 +144,7 @@ func (rp *relayerProxy) Start(ctx context.Context) error {
 	for _, relayServer := range rp.servers {
 		server := relayServer // create a new variable scoped to the anonymous function
 
-		if err := server.Ping(); err != nil {
+		if err := server.Ping(ctx); err != nil {
 			return err
 		}
 
@@ -189,13 +189,24 @@ func (rp *relayerProxy) validateConfig() error {
 	return nil
 }
 
-// RelayServers returns the list of relay servers currently managed by the relayer proxy.
-func (rp *relayerProxy) RelayServers() relayer.RelayServers {
-	res := make([]relayer.RelayServer, len(rp.servers))
+// Ping tests the connectivity between all the managed relay servers and their respective backend URLs.
+func (rp *relayerProxy) Ping(ctx context.Context) []error {
+	errs := make([]error, len(rp.servers))
 
+	var i int
 	for _, srv := range rp.servers {
-		res = append(res, srv)
+		if err := srv.Ping(ctx); err != nil {
+			rp.logger.Error().Err(err).
+				Msg("an unexpected error occured while pinging backend URL")
+			errs[i] = err
+		}
+
+		i++
 	}
 
-	return res
+	if len(errs) > 0 {
+		return errs
+	}
+
+	return nil
 }

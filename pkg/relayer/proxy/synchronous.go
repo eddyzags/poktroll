@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -99,33 +99,21 @@ func (sync *synchronousRPCServer) Stop(ctx context.Context) error {
 	return sync.server.Shutdown(ctx)
 }
 
-// ServiceIDs returns a list of service id managed by the Relay Server.
-func (sync *synchronousRPCServer) ServiceIDs() []string {
-	serviceIDs := make([]string, len(sync.serverConfig.SupplierConfigsMap))
-
-	for serviceID, _ := range sync.serverConfig.SupplierConfigsMap {
-		serviceIDs = append(serviceIDs, serviceID)
-	}
-
-	return serviceIDs
-}
-
-// Foward sends an HTTP request to the supplier backend URL using the given payload.
-func (sync *synchronousRPCServer) Foward(ctx context.Context, payload []byte) ([]byte, error) {
-	//TODO(eddyzags): Forward payload to supplier
-	return nil, nil
-}
-
 // Ping tries to dial the suppliers backend URLs to test the connection.
-func (sync *synchronousRPCServer) Ping() error {
+func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 	for _, supplierCfg := range sync.serverConfig.SupplierConfigsMap {
-		timeoutDuration := 1 * time.Second
+		c := &http.Client{Timeout: 2 * time.Second}
 
-		conn, err := net.DialTimeout("tcp", supplierCfg.ServiceConfig.BackendUrl.Host, timeoutDuration)
+		resp, err := c.Head(supplierCfg.ServiceConfig.BackendUrl.String())
 		if err != nil {
 			return err
 		}
-		_ = conn.Close()
+		_ = resp.Body.Close()
+
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return errors.New("ping failed")
+		}
+
 	}
 
 	return nil

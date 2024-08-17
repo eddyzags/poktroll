@@ -140,46 +140,12 @@ func (rel *relayMiner) ServePing(ctx context.Context, addr string) error {
 	}
 
 	go func() {
-		relayServers := rel.relayerProxy.RelayServers()
-
 		if err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			rel.logger.Debug().Msg("pinging relay servers...")
 
-			for _, relayServer := range relayServers {
-				if err := relayServer.Ping(); err != nil {
-					//TODO(eddyzags): write error & return
-				}
-			}
-
-			w.WriteHeader(http.StatusOK)
-		})); err != nil {
-			return
-		}
-	}()
-
-	return nil
-}
-
-func (rel *relayMiner) ServeForward(ctx context.Context, addr string) error {
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-
-	//TODO(eddyzags): Define route with route /services/{service_id}/forward
-
-	go func() {
-		relayServers := rel.relayerProxy.RelayServers()
-
-		if err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			rel.logger.Debug().Msg("forwarding request...")
-
-			//TODO(eddyzags): parse service id.
-			serviceID := ""
-
-			relayServer := relayServers.byServiceID(serviceID)
-			if relayServer == nil {
-
+			if errs := rel.relayerProxy.Ping(ctx); errs != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 
 			w.WriteHeader(http.StatusOK)
