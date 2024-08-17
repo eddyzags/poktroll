@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -135,7 +136,12 @@ func runRelayer(cmd *cobra.Command, _ []string) error {
 	}
 
 	if relayMinerConfig.Ping.Enabled {
-		if err := relayMiner.ServePing(ctx, relayMinerConfig.Ping.Addr); err != nil {
+		ln, err := net.Listen("tcp", relayMinerConfig.Ping.Addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen ping server: %w", err)
+		}
+
+		if err := relayMiner.ServePing(ctx, ln); err != nil {
 			return fmt.Errorf("failed to start ping server: %w", err)
 		}
 	}
