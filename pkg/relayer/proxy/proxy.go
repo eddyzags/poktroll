@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"io"
 
 	"cosmossdk.io/depinject"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -212,4 +213,14 @@ func (rp *relayerProxy) Ping(ctx context.Context) []error {
 	}
 
 	return nil
+}
+
+// Forward ...
+func (rp *relayerProxy) Forward(ctx context.Context, serviceID string, body io.ReadCloser) (io.ReadCloser, error) {
+	for _, srv := range rp.servers {
+		ids := srv.ServiceIDs()
+
+	}
+
+	return nil, nil
 }
