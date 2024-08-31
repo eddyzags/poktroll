@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -111,6 +112,66 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (sync *synchronousRPCServer) ServiceIDs() []string {
+	var serviceIDs []string
+
+	for serviceID, _ := range sync.serverConfig.SupplierConfigsMap {
+		serviceIDs = append(serviceIDs, serviceID)
+	}
+
+	return serviceIDs
+}
+
+type forwardPayload struct {
+	Method  string
+	Path    string
+	Headers map[string]string
+	Data    string
+}
+
+func (p forwardPayload) ToHeaders() http.Header {
+	h := http.Header{}
+
+	for k, v := range p.Headers {
+		h.Set(k, v)
+	}
+
+	return h
+}
+
+// Forward reads the given payload ...
+func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string, body io.ReadCloser) (io.ReadCloser, error) {
+	b, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload forwardPayload
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{
+		Method: payload.Method,
+		Body:   io.NopCloser(bytes.NewReader([]byte(payload.Data))),
+		URL:    sync.serverConfig.SupplierConfigsMap[serviceID].ServiceConfig.BackendUrl,
+		Header: payload.ToHeaders(),
+	}
+
+	c := http.Client{}
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, nil
+	}
+
+	if resp.StatusCode >= http.StatusInternalServerError {
+		sync.logger.Error().Msg("forward request failed")
+		return nil, errors.New("request failed")
+	}
+
+	return resp.Body, nil
 }
 
 // ServeHTTP listens for incoming relay requests. It implements the respective
