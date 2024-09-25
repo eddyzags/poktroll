@@ -25,12 +25,21 @@ type YAMLRelayMinerConfig struct {
 	SmtStorePath           string                         `yaml:"smt_store_path"`
 	Suppliers              []YAMLRelayMinerSupplierConfig `yaml:"suppliers"`
 	Ping                   YAMLRelayMinerPingConfig       `yaml:"ping"`
+	Forward                YAMLRelayMinerForwardConfig    `yaml:"forward"`
 }
 
 // YAMLRelayMinerPingConfig represents the configuration to expose a ping server.
 type YAMLRelayMinerPingConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Addr    string `yaml:"addr"`
+}
+
+// YAMLRelayMinerForwardConfig represents the configuration to expose a forward
+// request server.
+type YAMLRelayMinerForwardConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Addr    string `yaml:"addr"`
+	Token   string `yaml:"token"`
 }
 
 // YAMLRelayMinerPocketNodeConfig is the structure used to unmarshal the pocket
@@ -91,6 +100,7 @@ type RelayMinerConfig struct {
 	Servers                map[string]*RelayMinerServerConfig
 	SmtStorePath           string
 	Ping                   *RelayMinerPingConfig
+	Forward                *RelayMinerForwardConfig
 }
 
 // RelayMinerPingConfig is the structure resulting from parsing the ping
@@ -98,6 +108,14 @@ type RelayMinerConfig struct {
 type RelayMinerPingConfig struct {
 	Enabled bool
 	Addr    string
+}
+
+// RelayMinerForwardConfig is the structure resulting from parsing the
+// forward server configuration.
+type RelayMinerForwardConfig struct {
+	Enabled bool
+	Addr    string
+	Token   string
 }
 
 // RelayMinerPocketNodeConfig is the structure resulting from parsing the pocket

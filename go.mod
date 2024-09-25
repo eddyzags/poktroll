@@ -79,7 +79,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require github.com/jhump/protoreflect v1.16.0
+require (
+	github.com/go-chi/chi/v5 v5.1.0
+	github.com/jhump/protoreflect v1.16.0
+)
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.34.2-20240508200655-46a4cf4ba109.2 // indirect
@@ -164,7 +167,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/go-chi/chi/v5 v5.1.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect

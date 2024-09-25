@@ -2,11 +2,13 @@ package relayer
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
 
 	"cosmossdk.io/depinject"
+	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/pokt-network/poktroll/pkg/polylog"
@@ -153,6 +155,50 @@ func (rel *relayMiner) ServePing(ctx context.Context, ln net.Listener) error {
 
 			w.WriteHeader(http.StatusOK)
 		})); err != nil {
+			return
+		}
+	}()
+
+	return nil
+}
+
+func (rel *relayMiner) ServeForward(ctx context.Context, ln net.Listener, token string) error {
+	muxRouter := chi.NewRouter()
+	muxRouter.Method("POST", "/{service_id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqToken := r.Header.Get("token")
+		if reqToken != token {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		rel.logger.Debug().Msg("forwarding request to supplier...")
+
+		serviceID := chi.URLParam(r, "service_id")
+		if serviceID == "" {
+			rel.logger.Error().Msg("service id not found")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		resp, err := rel.relayerProxy.Forward(ctx, serviceID, r.Body)
+		if err != nil {
+			rel.logger.Error().Err(err).Msg("unable to forward request")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if _, err := io.Copy(w, resp); err != nil {
+			rel.logger.Error().Err(err).Msg("unable to write forward response")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	go func() {
+		if err := http.Serve(ln, muxRouter); err != nil {
+			rel.logger.Error().Err(err).Msg("unexpected error occured while serving forward server")
 			return
 		}
 	}()
