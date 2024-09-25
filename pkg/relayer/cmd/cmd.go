@@ -145,6 +145,21 @@ func runRelayer(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	if relayMinerConfig.Forward.Enabled {
+		ln, err := net.Listen("tcp", relayMinerConfig.Forward.Addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen forward server: %w", err)
+		}
+
+		if relayMinerConfig.Forward.Token == "" {
+			return fmt.Errorf("empty forward.token in configuration file")
+		}
+
+		if err := relayMiner.ServeForward(ctx, ln, relayMinerConfig.Forward.Token); err != nil {
+			return fmt.Errorf("failed to start forward server: %w", err)
+		}
+	}
+
 	// Start the relay miner
 	logger.Info().Msg("Starting relay miner...")
 	if err := relayMiner.Start(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
