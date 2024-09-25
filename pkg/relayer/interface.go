@@ -7,6 +7,7 @@ package relayer
 
 import (
 	"context"
+	"io"
 
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pokt-network/smt"
@@ -76,6 +77,9 @@ type RelayerProxy interface {
 
 	// PingAll tests the connectivity between all the managed relay servers and their respective backend URLs.
 	PingAll(ctx context.Context) error
+
+	// Forward iterates through all the managed relay servers to forward the given request.
+	Forward(ctx context.Context, serviceID string, body io.ReadCloser) (io.ReadCloser, error)
 }
 
 type RelayerProxyOption func(RelayerProxy)
@@ -90,6 +94,9 @@ type RelayServer interface {
 
 	// Ping tests the connection between the relay server and its backend URL.
 	Ping(ctx context.Context) error
+
+	// Forward sends a request to the supplier service.
+	Forward(ctx context.Context, serviceID string, body io.ReadCloser) (io.ReadCloser, error)
 }
 
 // RelayServers aggregates a slice of RelayServer interface.
