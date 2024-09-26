@@ -3,7 +3,6 @@ package relayer
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -194,8 +193,6 @@ func (rel *relayMiner) ServeForward(ctx context.Context, ln net.Listener, token 
 			return
 		}
 
-		rel.logger.Debug().Msg("forwarding request to supplier...")
-
 		serviceID := chi.URLParam(r, "service_id")
 		if serviceID == "" {
 			rel.logger.Error().Msg("service id not found")
@@ -203,20 +200,15 @@ func (rel *relayMiner) ServeForward(ctx context.Context, ln net.Listener, token 
 			return
 		}
 
-		resp, err := rel.relayerProxy.Forward(ctx, serviceID, r.Body)
-		if err != nil {
+		rel.logger.Debug().Fields(map[string]any{
+			"service_id": serviceID,
+		}).Msg("forwarding request to supplier...")
+
+		if err := rel.relayerProxy.Forward(ctx, serviceID, w, r); err != nil {
 			rel.logger.Error().Err(err).Msg("unable to forward request")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		if _, err := io.Copy(w, resp); err != nil {
-			rel.logger.Error().Err(err).Msg("unable to write forward response")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
 	}))
 
 	go func() {

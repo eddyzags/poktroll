@@ -135,44 +135,53 @@ func (p forwardPayload) ToHeaders() http.Header {
 }
 
 // Forward reads the given payload ...
-func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string, body io.ReadCloser) (io.ReadCloser, error) {
+func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string, w http.ResponseWriter, req *http.Request) error {
 	supplierConfig, ok := sync.serverConfig.SupplierConfigsMap[serviceID]
 	if !ok {
-		return nil, ErrRelayerProxyServiceIDNotFound
+		return ErrRelayerProxyServiceIDNotFound
 	}
 
-	b, err := io.ReadAll(body)
+	b, err := io.ReadAll(req.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var payload forwardPayload
 	if err := json.Unmarshal(b, &payload); err != nil {
-		return nil, err
+		return err
 	}
 
 	url := *supplierConfig.ServiceConfig.BackendUrl
 	url.Path = path.Join(url.Path, payload.Path)
 
-	req := &http.Request{
+	forwardReq := &http.Request{
 		Method: payload.Method,
 		Body:   io.NopCloser(bytes.NewReader(payload.Data)),
 		URL:    &url,
 		Header: payload.ToHeaders(),
 	}
 
-	c := http.Client{}
-	resp, err := c.Do(req)
+	c := http.Client{
+		Transport: http.DefaultTransport,
+	}
+
+	resp, err := c.Do(forwardReq)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	w.WriteHeader(resp.StatusCode)
+
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return fmt.Errorf("unable to write forward request response: %w", err)
 	}
 
 	if resp.StatusCode >= http.StatusInternalServerError {
-		sync.logger.Error().Err(err).Msg("forward request failed")
-		return nil, errors.New("request failed")
+		sync.logger.Error().Fields(map[string]any{"service_id": serviceID}).
+			Msg("forward request failed")
 	}
 
-	return resp.Body, nil
+	return nil
 }
 
 // ServeHTTP listens for incoming relay requests. It implements the respective
