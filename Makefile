@@ -855,6 +855,14 @@ acc_initialize_pubkeys: ## Make sure the account keeper has public keys for all 
 			--node $(POCKET_NODE);)
 
 ########################
+##### Relay Miner ######
+########################
+
+.PHONY: relayminer_forward_token_gen
+relayminer_forward_token_gen:
+	@openssl rand -hex 32 | tr -d "\n"
+
+########################
 ### Warning Messages ###
 ########################
 
