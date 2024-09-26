@@ -3,7 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
-	"io"
+	"net/http"
 
 	"cosmossdk.io/depinject"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -236,18 +236,15 @@ func (rp *relayerProxy) PingAll(ctx context.Context) error {
 }
 
 // Forward iterates through all the relay servers, then tries to forward the given request.
-func (rp *relayerProxy) Forward(ctx context.Context, serviceID string, body io.ReadCloser) (io.ReadCloser, error) {
+func (rp *relayerProxy) Forward(ctx context.Context, serviceID string, w http.ResponseWriter, req *http.Request) error {
 	found := false
-	var resp io.ReadCloser
-	var err error
 
 	for _, srv := range rp.servers {
-		resp, err = srv.Forward(ctx, serviceID, body)
-		if err != nil {
+		if err := srv.Forward(ctx, serviceID, w, req); err != nil {
 			if errors.Is(err, ErrRelayerProxyServiceIDNotFound) {
 				continue
 			}
-			return nil, err
+			return err
 		} else {
 			found = true
 			break
@@ -255,8 +252,8 @@ func (rp *relayerProxy) Forward(ctx context.Context, serviceID string, body io.R
 	}
 
 	if !found {
-		return nil, errors.New("service id not found")
+		return ErrRelayerProxyServiceIDNotFound
 	}
 
-	return resp, nil
+	return nil
 }
