@@ -161,6 +161,8 @@ func (rel *relayMiner) ServePing(ctx context.Context, ln net.Listener) error {
 	return nil
 }
 
+// ServeForward exposes a forward HTTP server for administrators to send request to
+// specific service.
 func (rel *relayMiner) ServeForward(ctx context.Context, ln net.Listener, token string) error {
 	muxRouter := chi.NewRouter()
 	muxRouter.Method("POST", "/{service_id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
