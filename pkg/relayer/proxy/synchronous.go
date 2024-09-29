@@ -117,14 +117,16 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 	return nil
 }
 
+// forwardPayload represents the request body format.
 type forwardPayload struct {
 	Method  string            `json:"method"`
 	Path    string            `json:"path"`
 	Headers map[string]string `json:"headers"`
-	Data    []byte            `json:"data"`
+	Data    string            `json:"data"`
 }
 
-func (p forwardPayload) ToHeaders() http.Header {
+// toHeaders instantiates an http.Header based on the Headers field.
+func (p forwardPayload) toHeaders() http.Header {
 	h := http.Header{}
 
 	for k, v := range p.Headers {
@@ -134,7 +136,7 @@ func (p forwardPayload) ToHeaders() http.Header {
 	return h
 }
 
-// Forward reads the given payload ...
+// Forward reads the forward payload request and sends a request to a managed service id.
 func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string, w http.ResponseWriter, req *http.Request) error {
 	supplierConfig, ok := sync.serverConfig.SupplierConfigsMap[serviceID]
 	if !ok {
@@ -156,15 +158,16 @@ func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string,
 
 	forwardReq := &http.Request{
 		Method: payload.Method,
-		Body:   io.NopCloser(bytes.NewReader(payload.Data)),
+		Body:   io.NopCloser(bytes.NewBufferString(payload.Data)),
 		URL:    &url,
-		Header: payload.ToHeaders(),
+		Header: payload.toHeaders(),
 	}
 
 	c := http.Client{
 		Transport: http.DefaultTransport,
 	}
 
+	// forward request to the supplier.
 	resp, err := c.Do(forwardReq)
 	if err != nil {
 		return err
