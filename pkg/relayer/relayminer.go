@@ -188,7 +188,7 @@ func (rel *relayMiner) newPinghandlerFn(ctx context.Context) http.HandlerFunc {
 // specific service.
 func (rel *relayMiner) ServeForward(ctx context.Context, ln net.Listener, token string) error {
 	muxRouter := chi.NewRouter()
-	muxRouter.Method("POST", "/{service_id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	muxRouter.Method("POST", "/services/{service_id}/forward", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqToken := r.Header.Get("token")
 		if reqToken != token {
 			w.WriteHeader(http.StatusUnauthorized)
