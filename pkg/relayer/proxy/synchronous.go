@@ -101,8 +101,9 @@ func (sync *synchronousRPCServer) Stop(ctx context.Context) error {
 func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 	for _, supplierCfg := range sync.serverConfig.SupplierConfigsMap {
 		httpClient := &http.Client{Timeout: 2 * time.Second}
+		endpointURL := supplierCfg.ServiceConfig.BackendUrl.String()
 
-		resp, err := httpClient.Head(supplierCfg.ServiceConfig.BackendUrl.String())
+		resp, err := httpClient.Head(endpointURL)
 		if err != nil {
 			return err
 		}
