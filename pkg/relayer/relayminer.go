@@ -214,9 +214,9 @@ func (rel *relayMiner) newForwardHandlerFn(ctx context.Context, token string) ht
 			return
 		}
 
-		serviceID := chi.URLParam(r, "service_id")
+		serviceID := r.Header.Get("service-id")
 		if serviceID == "" {
-			rel.logger.Error().Msg("service id not found")
+			rel.logger.Error().Msg("service id not found while forwarding request")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
