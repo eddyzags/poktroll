@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -186,7 +187,12 @@ func (rel *relayMiner) newPinghandlerFn(ctx context.Context) http.HandlerFunc {
 
 // ServeForward exposes a forward HTTP server for administrators to send request to
 // specific service.
-func (rel *relayMiner) ServeForward(ctx context.Context, ln net.Listener, token string) error {
+func (rel *relayMiner) ServeForward(ctx context.Context, network, addr, token string) error {
+	ln, err := net.Listen(network, addr)
+	if err != nil {
+		return fmt.Errorf("net listen: %w", err)
+	}
+
 	muxRouter := chi.NewRouter()
 	muxRouter.Method("POST", "/services/{service_id}/forward", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqToken := r.Header.Get("token")
