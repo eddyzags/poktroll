@@ -38,9 +38,13 @@ type YAMLRelayMinerPingConfig struct {
 // YAMLRelayMinerForwardConfig represents the configuration to expose a forward
 // request server.
 type YAMLRelayMinerForwardConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Addr    string `yaml:"addr"`
-	Token   string `yaml:"token"`
+	Enabled bool `yaml:"enabled"`
+
+	// Addr is the address to bind to (format: 'hostname:port') where 'hostname' can be a DNS name or an IP.
+	Addr string `yaml:"addr"`
+
+	// Token must represent an 32 bytes hexadecimal string. (mandatory flag when activating forwarding capabilities)
+	Token string `yaml:"token"`
 }
 
 // YAMLRelayMinerPocketNodeConfig is the structure used to unmarshal the pocket
@@ -118,8 +122,11 @@ type RelayMinerPingConfig struct {
 // forward server configuration.
 type RelayMinerForwardConfig struct {
 	Enabled bool
-	Addr    string
-	Token   string
+	// Addr is the address to bind to (format: 'hostname:port') where 'hostname' can be a DNS name or an IP.
+	Addr string
+
+	// Token must represent an 32 bytes hexadecimal string. (mandatory flag when activating forwarding capabilities).
+	Token string
 }
 
 // RelayMinerPocketNodeConfig is the structure resulting from parsing the pocket
