@@ -83,6 +83,8 @@ require (
 	github.com/foxcpp/go-mockdns v1.1.0
 	github.com/jhump/protoreflect v1.16.0
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/go-chi/chi/v5 v5.1.0
+	github.com/jhump/protoreflect v1.16.0
 )
 
 require (

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -114,6 +115,82 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 				"endpoint URL %q err: %s",
 				supplierCfg.ServiceConfig.BackendUrl.String(), err)
 		}
+	}
+
+	return nil
+}
+
+// forwardPayload represents the request body format to forward a request to
+// the supplier.
+type forwardPayload struct {
+	Method  string            `json:"method"`
+	Path    string            `json:"path"`
+	Headers map[string]string `json:"headers"`
+	Data    string            `json:"data"`
+}
+
+// toHeaders instantiates an http.Header based on the Headers field.
+func (p forwardPayload) toHeaders() http.Header {
+	h := http.Header{}
+
+	for k, v := range p.Headers {
+		h.Set(k, v)
+	}
+
+	return h
+}
+
+// Forward reads the forward payload request and sends a request to a managed service id.
+func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string, w http.ResponseWriter, req *http.Request) error {
+	supplierConfig, ok := sync.serverConfig.SupplierConfigsMap[serviceID]
+	if !ok {
+		return ErrRelayerProxyServiceIDNotFound
+	}
+
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
+
+	var payload forwardPayload
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return err
+	}
+
+	url := *supplierConfig.ServiceConfig.BackendUrl
+	url.Path = path.Join(url.Path, payload.Path)
+
+	forwardReq := &http.Request{
+		Method: payload.Method,
+		Body:   io.NopCloser(bytes.NewBufferString(payload.Data)),
+		URL:    &url,
+		Header: payload.toHeaders(),
+	}
+
+	c := http.Client{
+		Transport: http.DefaultTransport,
+	}
+
+	// forward request to the supplier.
+	resp, err := c.Do(forwardReq)
+	if err != nil {
+		return err
+	}
+
+	w.WriteHeader(resp.StatusCode)
+
+	// streaming supplier's output to the client.
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return fmt.Errorf("unable to write forward request response: %w", err)
+	}
+
+	if resp.StatusCode >= http.StatusInternalServerError {
+		sync.logger.Error().Fields(map[string]any{
+			"service_id": serviceID,
+			"method":     payload.Method,
+			"path":       payload.Path,
+			"headers":    payload.Headers,
+		}).Msg("forward request failed")
 	}
 
 	return nil
