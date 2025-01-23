@@ -194,7 +194,20 @@ func (rel *relayMiner) ServeForward(ctx context.Context, network, addr, token st
 	}
 
 	muxRouter := chi.NewRouter()
-	muxRouter.Method("POST", "/services/{service_id}/forward", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	muxRouter.Method("POST", "/services/{service_id}/forward", rel.newForwardHandlerFn(ctx, token))
+
+	go func() {
+		if err := http.Serve(ln, muxRouter); err != nil {
+			rel.logger.Error().Err(err).Msg("unexpected error occured while serving forward server")
+			return
+		}
+	}()
+
+	return nil
+}
+
+func (rel *relayMiner) newForwardHandlerFn(ctx context.Context, token string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqToken := r.Header.Get("token")
 		if reqToken != token {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -217,14 +230,5 @@ func (rel *relayMiner) ServeForward(ctx context.Context, network, addr, token st
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-	}))
-
-	go func() {
-		if err := http.Serve(ln, muxRouter); err != nil {
-			rel.logger.Error().Err(err).Msg("unexpected error occured while serving forward server")
-			return
-		}
-	}()
-
-	return nil
+	})
 }
