@@ -146,10 +146,6 @@ func runRelayer(cmd *cobra.Command, _ []string) error {
 	}
 
 	if relayMinerConfig.Forward.Enabled {
-		if relayMinerConfig.Forward.Token == "" {
-			return fmt.Errorf("empty forward.token in configuration file. (you can use 'make relayminer_forward_token_gen' command to generate a token)")
-		}
-
 		if err := relayMiner.ServeForward(ctx, "tcp", relayMinerConfig.Forward.Addr, relayMinerConfig.Forward.Token); err != nil {
 			return fmt.Errorf("serve forward: %w", err)
 		}
