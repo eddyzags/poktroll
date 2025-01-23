@@ -175,6 +175,7 @@ func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string,
 
 	w.WriteHeader(resp.StatusCode)
 
+	// streaming supplier's output to the client.
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("unable to write forward request response: %w", err)
 	}
