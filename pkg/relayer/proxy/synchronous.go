@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -117,7 +116,8 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 	return nil
 }
 
-// forwardPayload represents the request body format.
+// forwardPayload represents the request body format to forward a request to
+// the supplier.
 type forwardPayload struct {
 	Method  string            `json:"method"`
 	Path    string            `json:"path"`
