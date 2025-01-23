@@ -181,8 +181,12 @@ func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string,
 	}
 
 	if resp.StatusCode >= http.StatusInternalServerError {
-		sync.logger.Error().Fields(map[string]any{"service_id": serviceID}).
-			Msg("forward request failed")
+		sync.logger.Error().Fields(map[string]any{
+			"service_id": serviceID,
+			"method":     payload.Method,
+			"path":       payload.Path,
+			"headers":    payload.Headers,
+		}).Msg("forward request failed")
 	}
 
 	return nil
