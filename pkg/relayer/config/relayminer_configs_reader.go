@@ -50,8 +50,8 @@ func ParseRelayMinerConfigs(configContent []byte) (*RelayMinerConfig, error) {
 	}
 
 	if yamlRelayMinerConfig.Forward.Enabled {
-		if matched, _ := regexp.Match(`^[a-fA-F0-9]{32}$`, []byte(yamlRelayMinerConfig.Forward.Token)); !matched {
-			return nil, ErrRelayMinerConfigEmpty
+		if matched, _ := regexp.MatchString(`^[a-fA-F0-9]{64}$`, yamlRelayMinerConfig.Forward.Token); !matched {
+			return nil, ErrRelayerMinerWrongForwardToken
 		}
 	}
 
