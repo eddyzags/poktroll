@@ -112,8 +112,8 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 		// DEV_NOTE: Return ANY HTTP error.
 		if resp.StatusCode >= http.StatusBadRequest {
 			return ErrRelayerProxySupplierNotReachable.Wrapf(
-				"endpoint URL %q err: %s",
-				supplierCfg.ServiceConfig.BackendUrl.String(), err)
+				"endpoint URL %q; status code: %d",
+				supplierCfg.ServiceConfig.BackendUrl.String(), err, resp.StatusCode)
 		}
 	}
 
