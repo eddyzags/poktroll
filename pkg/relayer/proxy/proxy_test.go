@@ -3,6 +3,7 @@ package proxy_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -563,6 +564,7 @@ type RelayProxyPingAllSuite struct {
 	suite.Suite
 	relayerProxyBehavior []func(*testproxy.TestBehavior)
 	servicesConfigMap    map[string]*config.RelayMinerServerConfig
+	supplierEndpoints    map[string][]*sharedtypes.SupplierEndpoint
 }
 
 // TestRelayProxyPingAllSuite executes the RelayProxyPingAllSuite test suite.
@@ -635,7 +637,7 @@ func (t *RelayProxyPingAllSuite) TestOKPingAllWithSingleRelayServer() {
 
 	go func() {
 		err := rp.Start(ctx)
-		if http.ErrServerClosed != err {
+		if !errors.Is(err, http.ErrServerClosed) {
 			require.NoError(t.T(), err)
 		}
 	}()
@@ -657,21 +659,52 @@ func (t *RelayProxyPingAllSuite) TestOKPingAllWithMultipleRelayServers() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	secondRelayMinerAddr := "127.0.0.1:8246"
-	secondServiceName := "secondservice"
+	firstRelayMinerAddr := "127.0.0.1:8246"
+	firstServiceName := "firstService"
+	secondRelayMinerAddr := "127.0.0.1:8247"
+	secondServiceName := "secondService"
+
+	newSupplierOperatorKeyName := "newSupplierKeyName"
+	appPrivateKey := secp256k1.GenPrivKey()
 
 	// adding supplier endpoint.
 	supplierEndpoints := map[string][]*sharedtypes.SupplierEndpoint{
-		secondServiceName: {
+		firstServiceName: []*sharedtypes.SupplierEndpoint{
 			{
-				Url:     "http://secondservice:8646",
+				Url:     "http://firstservice:8646",
+				RpcType: sharedtypes.RPCType_JSON_RPC,
+			},
+		},
+		secondServiceName: []*sharedtypes.SupplierEndpoint{
+			{
+				Url:     "http://secondservice:8647",
 				RpcType: sharedtypes.RPCType_JSON_RPC,
 			},
 		},
 	}
 
 	servicesConfigMap := map[string]*config.RelayMinerServerConfig{
-		secondRelayMinerAddr: {
+		firstRelayMinerAddr: &config.RelayMinerServerConfig{
+			ServerType:    config.RelayMinerServerTypeHTTP,
+			ListenAddress: firstRelayMinerAddr,
+			SupplierConfigsMap: map[string]*config.RelayMinerSupplierConfig{
+				firstServiceName: {
+					ServiceId:  firstServiceName,
+					ServerType: config.RelayMinerServerTypeHTTP,
+					ServiceConfig: &config.RelayMinerSupplierServiceConfig{
+						BackendUrl: &url.URL{
+							Scheme: "http",
+							Host:   "127.0.0.1:8646",
+							Path:   "/",
+						},
+					},
+					PubliclyExposedEndpoints: []string{
+						"firstservice",
+					},
+				},
+			},
+		},
+		secondRelayMinerAddr: &config.RelayMinerServerConfig{
 			ServerType:    config.RelayMinerServerTypeHTTP,
 			ListenAddress: secondRelayMinerAddr,
 			SupplierConfigsMap: map[string]*config.RelayMinerSupplierConfig{
@@ -681,7 +714,7 @@ func (t *RelayProxyPingAllSuite) TestOKPingAllWithMultipleRelayServers() {
 					ServiceConfig: &config.RelayMinerSupplierServiceConfig{
 						BackendUrl: &url.URL{
 							Scheme: "http",
-							Host:   "127.0.0.1:8646",
+							Host:   "127.0.0.1:8647",
 							Path:   "/",
 						},
 					},
@@ -693,29 +726,27 @@ func (t *RelayProxyPingAllSuite) TestOKPingAllWithMultipleRelayServers() {
 		},
 	}
 
-	relayProxyBehavior := append(t.relayerProxyBehavior, []func(*testproxy.TestBehavior){
-		testproxy.WithDefaultSupplier(supplierOperatorKeyName, supplierEndpoints),
+	relayerProxyBehavior := []func(*testproxy.TestBehavior){
+		testproxy.WithRelayerProxyDependenciesForBlockHeight(newSupplierOperatorKeyName, 1),
+		testproxy.WithDefaultSupplier(newSupplierOperatorKeyName, supplierEndpoints),
 		testproxy.WithServicesConfigMap(servicesConfigMap),
-	}...)
-
-	testBehavoirs := testproxy.NewRelayerProxyTestBehavior(ctx, t.T(), relayProxyBehavior...)
-
-	// copying the default relayminer in the test service config
-	// map for the relay proxy.
-	for k, v := range t.servicesConfigMap {
-		servicesConfigMap[k] = v
+		testproxy.WithDefaultApplication(appPrivateKey),
+		testproxy.WithDefaultSessionSupplier(newSupplierOperatorKeyName, defaultService, appPrivateKey),
+		testproxy.WithRelayMeter(),
 	}
+
+	testBehavoirs := testproxy.NewRelayerProxyTestBehavior(ctx, t.T(), relayerProxyBehavior...)
 
 	rp, err := proxy.NewRelayerProxy(
 		testBehavoirs.Deps,
-		proxy.WithSigningKeyNames([]string{supplierOperatorKeyName}),
+		proxy.WithSigningKeyNames([]string{newSupplierOperatorKeyName}),
 		proxy.WithServicesConfigMap(servicesConfigMap),
 	)
 	require.NoError(t.T(), err)
 
 	go func() {
 		err := rp.Start(ctx)
-		if err != http.ErrServerClosed {
+		if !errors.Is(err, http.ErrServerClosed) {
 			require.NoError(t.T(), err)
 		}
 	}()
@@ -869,7 +900,7 @@ func (t *RelayProxyPingAllSuite) TestNOKPingAllWithPartialFailureAfterStartup() 
 
 	go func() {
 		err := rp.Start(ctx)
-		if err != http.ErrServerClosed {
+		if !errors.Is(err, http.ErrServerClosed) {
 			require.NoError(t.T(), err)
 		}
 	}()
@@ -994,7 +1025,7 @@ func (t *RelayProxyPingAllSuite) TestOKPingAllDifferentEndpoint() {
 
 	go func() {
 		err := rp.Start(ctx)
-		if err != http.ErrServerClosed {
+		if !errors.Is(err, http.ErrServerClosed) {
 			require.NoError(t.T(), err)
 		}
 	}()
