@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	validate "github.com/go-playground/validator/v10"
 	sdktypes "github.com/pokt-network/shannon-sdk/types"
 
 	"github.com/pokt-network/poktroll/pkg/polylog"
@@ -119,8 +121,8 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 // forwardPayload represents the request body format to forward a request to
 // the supplier.
 type forwardPayload struct {
-	Method  string            `json:"method"`
-	Path    string            `json:"path"`
+	Method  string            `json:"method" validate:"required,oneof=GET PATCH PUT CONNECT TRACE DELETE POST HEAD OPTIONS"`
+	Path    string            `json:"path" validate:"required"`
 	Headers map[string]string `json:"headers"`
 	Data    string            `json:"data"`
 }
@@ -134,6 +136,18 @@ func (p forwardPayload) toHeaders() http.Header {
 	}
 
 	return h
+}
+
+// Validate returns true if the payload format is correct.
+func (p forwardPayload) Validate() error {
+	var err error
+	if structErr := validate.New().Struct(&p); structErr != nil {
+		for _, e := range structErr.(validate.ValidationErrors) {
+			err = errors.Join(err, e)
+		}
+	}
+
+	return err
 }
 
 // Forward reads the forward payload request and sends a request to a managed service id.
@@ -150,6 +164,10 @@ func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string,
 
 	var payload forwardPayload
 	if err := json.Unmarshal(b, &payload); err != nil {
+		return err
+	}
+
+	if err := payload.Validate(); err != nil {
 		return err
 	}
 
