@@ -196,11 +196,11 @@ ping:
 
 _`Optional`_
 
-Configures a `forward` server to send request to a supplier based on a
-specified service name. It is intended for operational use only (e.g.,
-a relayminer operator may need to send requests to suppliers to verify
-the correctness of their responses going through the relayminer proxy).
-Requests forwarded via this endpoint bypass the meter and session
+Configures a `forward` server to send request to a supplier for a given
+service name. It is intended for operational use only (e.g., a relayminer
+operator may need to send requests to suppliers to verify the correctness
+of their responses going through the relayminer proxy).
+Requests forwarded via this endpoint bypass the miner and session
 manager mechanisms.
 To prevent misuse by unauthorized users, this endpoint requires
 authentication. A token can be defined using a 32 bytes hexadecimal
@@ -225,6 +225,12 @@ Example query using `relayminer1` with `ollama` as supplier in Localnet environm
     "data": "{\"model\": \"qwen:0.5b\", \"prompt\": \"hello world.\", \"stream\": false}"
 }
 ?> curl -X POST -H "token: 8e8cff9152db92e960b00b4159b23f82084192f9d6c589337caab9705b3e0693" -H "service-id: ollama" localhost:10001/services/ollama/forward --data-binary "@data.json"
+```
+
+Helpers to generate token in Makefile:
+
+```shell
+?> make relayminer_forward_token_gen
 ```
 
 ## Pocket node connectivity
