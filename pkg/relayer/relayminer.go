@@ -225,10 +225,6 @@ func (rel *relayMiner) newForwardHandlerFn(ctx context.Context, token string) ht
 			"service_id": serviceID,
 		}).Msg("forwarding request to supplier...")
 
-		if err := rel.relayerProxy.Forward(ctx, serviceID, w, r); err != nil {
-			rel.logger.Error().Err(err).Msg("unable to forward request")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		rel.relayerProxy.Forward(ctx, serviceID, w, r)
 	})
 }

@@ -188,6 +188,18 @@ func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string,
 	// forward request to the supplier.
 	resp, err := c.Do(forwardReq)
 	if err != nil {
+		sync.logger.Error().Fields(map[string]any{
+			"service_id": serviceID,
+			"method":     payload.Method,
+			"path":       payload.Path,
+			"headers":    payload.Headers,
+		}).Err(err).Msg("failed to send forward http request ")
+
+		if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
+			http.Error(w, fmt.Sprintf("relayminer: foward http request timeout exceeded"), http.StatusGatewayTimeout)
+		} else {
+			http.Error(w, fmt.Sprintf("relayminer: error forward http request: %s", err.Error()), http.StatusInternalServerError)
+		}
 		return err
 	}
 
@@ -196,15 +208,6 @@ func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string,
 	// streaming supplier's output to the client.
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("unable to write forward request response: %w", err)
-	}
-
-	if resp.StatusCode >= http.StatusInternalServerError {
-		sync.logger.Error().Fields(map[string]any{
-			"service_id": serviceID,
-			"method":     payload.Method,
-			"path":       payload.Path,
-			"headers":    payload.Headers,
-		}).Msg("forward request failed")
 	}
 
 	return nil
