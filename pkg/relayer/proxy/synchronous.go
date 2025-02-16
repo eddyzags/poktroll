@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	validate "github.com/go-playground/validator/v10"
 	sdktypes "github.com/pokt-network/shannon-sdk/types"
 
 	"github.com/pokt-network/poktroll/pkg/polylog"
@@ -110,6 +113,110 @@ func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 				Wrapf("dial timeout: %v", err)
 		}
 		conn.Close()
+	}
+
+	return nil
+}
+
+// forwardPayload represents the request body format to forward a request to
+// the supplier.
+type forwardPayload struct {
+	Method  string            `json:"method" validate:"required,oneof=GET PATCH PUT CONNECT TRACE DELETE POST HEAD OPTIONS"`
+	Path    string            `json:"path" validate:"required"`
+	Headers map[string]string `json:"headers"`
+	Data    string            `json:"data"`
+}
+
+// toHeaders instantiates an http.Header based on the Headers field.
+func (p forwardPayload) toHeaders() http.Header {
+	h := http.Header{}
+
+	for k, v := range p.Headers {
+		h.Set(k, v)
+	}
+
+	return h
+}
+
+// Validate returns true if the payload format is correct.
+func (p forwardPayload) Validate() error {
+	var err error
+	if structErr := validate.New().Struct(&p); structErr != nil {
+		for _, e := range structErr.(validate.ValidationErrors) {
+			err = errors.Join(err, e)
+		}
+	}
+
+	return err
+}
+
+// Forward reads the forward payload request and sends a request to a managed service id.
+func (sync *synchronousRPCServer) Forward(ctx context.Context, serviceID string, w http.ResponseWriter, req *http.Request) error {
+	supplierConfig, ok := sync.serverConfig.SupplierConfigsMap[serviceID]
+	if !ok {
+		return ErrRelayerProxyServiceIDNotFound
+	}
+
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
+
+	var payload forwardPayload
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return err
+	}
+
+	if err := payload.Validate(); err != nil {
+		return err
+	}
+
+	url := *supplierConfig.ServiceConfig.BackendUrl
+	url.Path = path.Join(url.Path, payload.Path)
+
+	forwardReq := &http.Request{
+		Method: payload.Method,
+		Body:   io.NopCloser(bytes.NewBufferString(payload.Data)),
+		URL:    &url,
+		Header: payload.toHeaders(),
+	}
+
+	c := http.Client{
+		Transport: http.DefaultTransport,
+	}
+
+	// forward request to the supplier.
+	resp, err := c.Do(forwardReq)
+	if err != nil {
+		sync.logger.Error().Fields(map[string]any{
+			"service_id": serviceID,
+			"method":     payload.Method,
+			"path":       payload.Path,
+			"headers":    payload.Headers,
+		}).Err(err).Msg("failed to send forward http request")
+
+		if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
+			http.Error(w, fmt.Sprintf("relayminer: foward http request timeout exceeded"), http.StatusGatewayTimeout)
+		} else {
+			http.Error(w, fmt.Sprintf("relayminer: error forward http request: %s", err.Error()), http.StatusInternalServerError)
+		}
+		return err
+	}
+
+	w.WriteHeader(resp.StatusCode)
+
+	// streaming supplier's output to the client.
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		sync.logger.Error().Fields(map[string]any{
+			"service_id": serviceID,
+			"method":     payload.Method,
+			"path":       payload.Path,
+			"headers":    payload.Headers,
+		}).Err(err).Msg("failed to write forward http reponse")
+
+		http.Error(w, fmt.Sprintf("relayminer: error on forward http response: %s", err.Error()), http.StatusInternalServerError)
+
+		return err
 	}
 
 	return nil
