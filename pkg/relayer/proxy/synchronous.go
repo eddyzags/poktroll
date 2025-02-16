@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -100,21 +101,15 @@ func (sync *synchronousRPCServer) Stop(ctx context.Context) error {
 // Ping tries to dial the suppliers backend URLs to test the connection.
 func (sync *synchronousRPCServer) Ping(ctx context.Context) error {
 	for _, supplierCfg := range sync.serverConfig.SupplierConfigsMap {
-		httpClient := &http.Client{Timeout: 2 * time.Second}
+		timeoutDuration := 2 * time.Second
 		endpointURL := supplierCfg.ServiceConfig.BackendUrl.String()
 
-		resp, err := httpClient.Head(endpointURL)
+		conn, err := net.DialTimeout("tcp", endpointURL, timeoutDuration)
 		if err != nil {
-			return err
+			return ErrRelayerProxySupplierNotReachable.
+				Wrapf("dial timeout: %v", err)
 		}
-		_ = resp.Body.Close()
-
-		// DEV_NOTE: Return ANY HTTP error.
-		if resp.StatusCode >= http.StatusInternalServerError {
-			return ErrRelayerProxySupplierNotReachable.Wrapf(
-				"endpoint URL %q; status code: %d",
-				supplierCfg.ServiceConfig.BackendUrl.String(), resp.StatusCode)
-		}
+		conn.Close()
 	}
 
 	return nil
